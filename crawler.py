@@ -6,10 +6,10 @@
 import os
 import sys
 
-from scraper import Page, get_page, extract_links
+from scraper import Page, get_page, extract_link
 
 
-FOLDER_PATH: str = "tests2"
+FOLDER_PATH: str = "tests"
 
 
 def save_page(page: Page) -> bool:
@@ -38,15 +38,16 @@ def save_page(page: Page) -> bool:
     return True
 
 
-def crawl(url: str, max_urls: int, depth: int, uniqueness: bool, parents: Page | None = None) -> None:
+def crawl(url: str, max_urls: int, depth: int, uniqueness: bool, parents: Page | None = None, all_pages: set = set()) -> None:
     """Web crawler recursively.
 
     Args:
         url (str): Url to download.
         max_urls (int): Max of unique URLs to extract from each page.
         depth (int): How deep the crawler should run.
-        uniqueness (bool): _description_
-        parents (Page | None, optional): Indicating whether URLs should be unique across different levels. Defaults to None.
+        uniqueness (bool): Indicating whether URLs should be unique across different levels.
+        parents (Page | None, optional): The `parent` web page. Defaults to None.
+        all_pages (set): All saved pages links.
     """
     page: Page = get_page(url, parents)
 
@@ -54,11 +55,22 @@ def crawl(url: str, max_urls: int, depth: int, uniqueness: bool, parents: Page |
         return
 
     save_page(page)
-    all_links: list[str] = extract_links(page, max_urls)
-    page.all_sub_links.extend(all_links)
+
+    if uniqueness:
+        all_pages.add(page.url)
+
+    for sub_link in extract_link(page):
+        if sub_link not in page.all_sub_links and sub_link not in all_pages:
+            page.all_sub_links.append(sub_link)
+
+            if uniqueness:
+                all_pages.add(sub_link)
+
+        if len(page.all_sub_links) == max_urls:
+            break
 
     for sub_link in page.all_sub_links:
-        crawl(sub_link, max_urls, depth, uniqueness, page)
+        crawl(sub_link, max_urls, depth, uniqueness, page, all_pages)
 
 
 def main(args: list[str]) -> None:
@@ -80,10 +92,10 @@ def main(args: list[str]) -> None:
     max_urls: int = int(args[2])
     depth: int = int(args[3])
 
-    if args[4].lower() == "true":  # In progress.
-        uniqueness: bool = True  # In progress.
+    if args[4].lower() == "true":
+        uniqueness: bool = True
     else:
-        uniqueness: bool = False  # In progress.
+        uniqueness: bool = False
 
     crawl(url, max_urls, depth, uniqueness)
 
@@ -91,5 +103,5 @@ def main(args: list[str]) -> None:
 
 
 if __name__ == "__main__":
-    # main(['crawler.py', 'https://www.wikipedia.org/', '5', '2', 'False'])
+    # main(['crawler.py', 'https://www.wikipedia.org/', '5', '2', 'True'])
     main(sys.argv)

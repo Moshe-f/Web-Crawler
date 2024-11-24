@@ -5,10 +5,11 @@
 
 
 from string import digits, ascii_letters
+from typing import Generator
 
 from bs4 import BeautifulSoup
 import requests
-from urllib.parse import urljoin, unquote
+from urllib.parse import unquote, urljoin, urlparse
 
 
 class Page:
@@ -63,8 +64,31 @@ class Page:
             self.depth = self.parent.depth + 1    
 
 
+def extract_link(page: Page) -> Generator[str, str, str]:
+    """Yields sub link from HTML content.
+
+    Args:
+        page (Page): Web page.
+
+    Yields:
+        Generator[str, str, str]: Sub link in the page.
+    """
+    soup = BeautifulSoup(page.content, "html.parser")
+
+    for link in soup.find_all("a"):
+        link: str = link.get('href')
+
+        if link is None or link.startswith("#") or link.startswith("mailto:") or link.startswith("tel:"):
+            continue
+
+        link: str = urljoin(page.url, link)
+        link: str = urljoin(link, urlparse(link).path)
+
+        yield link
+
+
 def extract_links(page: Page, max_urls: int = -1) -> list[str]:
-    """Extract link from the HTML content.
+    """Extract links from the HTML content.
 
     Args:
         page (Page): Web page.
@@ -75,16 +99,7 @@ def extract_links(page: Page, max_urls: int = -1) -> list[str]:
     """
     all_links_in_page: list[str] = []
 
-    soup = BeautifulSoup(page.content, "html.parser")
-
-    for link in soup.find_all("a"):
-        link: str = link.get('href')
-
-        if link is None or link.startswith("#") or link.startswith("mailto:") or link.startswith("tel:"):
-            continue
-
-        link: str = urljoin(page.url, link)
-
+    for link in extract_link(page):
         if link not in all_links_in_page:
             all_links_in_page.append(link)
 
